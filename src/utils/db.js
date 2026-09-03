@@ -3,7 +3,7 @@
  * surviving browser restarts for full offline availability.
  */
 const DB_NAME = "WeatherApp_DB";
-const DB_VERSION = 1;
+const DB_VERSION = 4;
 const STORE_WEATHER = "weather_cache";
 const STORE_SETTINGS = "user_settings";
 

@@ -88,6 +88,7 @@ function WeatherAppContent() {
 
   // Tabs & Panels & Guide / Privacy Modals
   const [tab, setTab] = useState("today");
+  const [selectedDayIdx, setSelectedDayIdx] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [guideModalOpen, setGuideModalOpen] = useState(false);
   const [privacyModalOpen, setPrivacyModalOpen] = useState(false);
@@ -119,6 +120,7 @@ function WeatherAppContent() {
       }
       const realData = await fetchRealWeather(city);
       setData(realData);
+      setSelectedDayIdx(0);
       await saveCachedWeather(dbKey, realData);
     } catch (e) {
       const cached = await getCachedWeather(dbKey);
@@ -259,6 +261,29 @@ function WeatherAppContent() {
   const cardBg = dark ? "rgba(255,255,255,0.03)" : "#FFFFFF";
   const cardShadow = dark ? "none" : "0 2px 14px rgba(16,24,40,0.06)";
 
+  const activeDay = data?.daily?.[selectedDayIdx] || data?.daily?.[0];
+  const displayData = data ? {
+    ...data,
+    current: selectedDayIdx === 0 ? data.current : {
+      ...data.current,
+      tempC: activeDay.hiC,
+      feelsLikeC: activeDay.heatIndexHiC,
+      condition: activeDay.condition,
+      conditionLabel: activeDay.condition === "storm" ? "Thunderstorms" : activeDay.condition === "rain" ? "Rainy" : activeDay.condition === "drizzle" ? "Light Drizzle" : activeDay.condition === "cloudy" ? "Overcast" : activeDay.condition === "partly-cloudy" ? "Partly Cloudy" : "Sunny",
+      highC: activeDay.hiC,
+      lowC: activeDay.loC,
+      heatIndexHiC: activeDay.heatIndexHiC,
+      precipChance: activeDay.precipChance,
+      humidity: activeDay.hourly?.[12]?.humidity || data.current.humidity,
+      windKph: activeDay.hourly?.[12]?.windKph || data.current.windKph,
+      uvIndex: activeDay.hourly?.[12]?.uvIndex || data.current.uvIndex,
+      sunrise: activeDay.sunrise || data.current.sunrise,
+      sunset: activeDay.sunset || data.current.sunset,
+      sunriseIso: activeDay.sunriseIso || data.current.sunriseIso,
+      sunsetIso: activeDay.sunsetIso || data.current.sunsetIso,
+    }
+  } : null;
+
   const visibleAlerts = (data?.alerts || []).filter((a) => !dismissedAlerts.includes(a.id));
   const TABS = [
     { key: "today", label: t("today", lang) },
@@ -325,9 +350,9 @@ function WeatherAppContent() {
                 hairline={hairline} cardShadow={cardShadow} fs={fs} lang={lang} meta={meta} voiceSearch={voiceSearch}
                 onSelectCity={selectCity}
               />
-              <HeroCard data={data} dark={dark} meta={meta} fs={fs} temp={temp} saved={saved} onToggleSave={toggleSave} reducedMotion={accessibility.reducedMotion} />
-              <DailyBriefing data={data} briefingOpen={briefingOpen} setBriefingOpen={setBriefingOpen} meta={meta} fs={fs} inkSoft={inkSoft} hairline={hairline} cardBg={cardBg} cardShadow={cardShadow} />
-              <MetricsGrid data={data} dark={dark} fs={fs} speed={speed} onOpenGuide={(key) => { setSelectedGuideKey(key); setGuideModalOpen(true); }} />
+              <HeroCard data={displayData} dark={dark} meta={meta} fs={fs} temp={temp} saved={saved} onToggleSave={toggleSave} reducedMotion={accessibility.reducedMotion} />
+              <DailyBriefing data={displayData} briefingOpen={briefingOpen} setBriefingOpen={setBriefingOpen} meta={meta} fs={fs} inkSoft={inkSoft} hairline={hairline} cardBg={cardBg} cardShadow={cardShadow} />
+              <MetricsGrid data={displayData} dark={dark} fs={fs} speed={speed} onOpenGuide={(key) => { setSelectedGuideKey(key); setGuideModalOpen(true); }} />
             </div>
 
             {/* Right Column (Tabs & Main Chart/Forecast Content) */}
@@ -338,7 +363,7 @@ function WeatherAppContent() {
                 ))}
               </div>
 
-              {tab === "today" && <TodayTab data={data} dark={dark} meta={meta} fs={fs} temp={temp} lang={lang} ink={ink} inkSoft={inkSoft} hairline={hairline} cardBg={cardBg} cardShadow={cardShadow} />}
+              {tab === "today" && <TodayTab data={data} selectedDayIdx={selectedDayIdx} setSelectedDayIdx={setSelectedDayIdx} dark={dark} meta={meta} fs={fs} temp={temp} lang={lang} ink={ink} inkSoft={inkSoft} hairline={hairline} cardBg={cardBg} cardShadow={cardShadow} />}
               {tab === "environment" && <EnvironmentTab data={data} dark={dark} fs={fs} lang={lang} inkSoft={inkSoft} hairline={hairline} cardBg={cardBg} cardShadow={cardShadow} />}
               {tab === "map" && <MapTab lat={data.location.lat} lon={data.location.lon} locationName={data.location.name} dark={dark} hairline={hairline} cardBg={cardBg} cardShadow={cardShadow} fs={fs} />}
               {tab === "history" && <HistoryTab data={data} temp={temp} fs={fs} inkSoft={inkSoft} hairline={hairline} />}

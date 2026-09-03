@@ -1,14 +1,14 @@
 import React, { useState } from "react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar } from "recharts";
 import ConditionIcon from "../ConditionIcon.jsx";
+import SunArcWidget from "../SunArcWidget.jsx";
 
 const SUB_METRIC_PILLS = [
   "Overview", "Precipitation", "Wind", "Humidity",
   "Cloud cover", "Pressure", "UV", "Feels like (Heat Index)"
 ];
 
-export default function TodayTab({ data, dark, meta, fs, temp, ink, inkSoft, hairline, cardBg, cardShadow }) {
-  const [selectedDayIdx, setSelectedDayIdx] = useState(0);
+export default function TodayTab({ data, selectedDayIdx = 0, setSelectedDayIdx, dark, meta, fs, temp, ink, inkSoft, hairline, cardBg, cardShadow }) {
   const [activeMetricPill, setActiveMetricPill] = useState("Overview");
   const [showFeelsLike, setShowFeelsLike] = useState(true);
 
@@ -146,21 +146,25 @@ export default function TodayTab({ data, dark, meta, fs, temp, ink, inkSoft, hai
         <div className="mt-2 w-full">
           <ResponsiveContainer width="100%" height={160}>
             {activeMetricPill === "Precipitation" ? (
-              <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <BarChart data={chartData} margin={{ top: 10, right: 15, left: 5, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={hairline} vertical={false} />
                 <XAxis dataKey="time" tick={{ fontSize: 10, fill: inkSoft }} axisLine={false} tickLine={false} interval={2} />
-                <YAxis tick={{ fontSize: 10, fill: inkSoft }} axisLine={false} tickLine={false} width={30} unit="%" />
+                <YAxis tick={{ fontSize: 10, fill: inkSoft }} axisLine={false} tickLine={false} width={35} unit="%" />
                 <Tooltip
                   contentStyle={{ background: dark ? "#131826" : "#FFFFFF", border: `1px solid ${hairline}`, borderRadius: 12, fontSize: 12, color: ink }}
-                  formatter={(v, name, item) => [
-                    `${v}% (${item.payload.precipMm} mm rain)`,
-                    "Precipitation"
-                  ]}
+                  formatter={(v, name, item) => {
+                    const mm = item.payload.precipMm;
+                    const intensity = mm >= 7.6 ? "Heavy Rain" : mm >= 2.5 ? "Moderate Rain" : mm >= 0.1 ? "Light Drizzle" : "No Rain";
+                    return [
+                      `${v}% chance · ${mm} mm/h (${intensity})`,
+                      "Precipitation"
+                    ];
+                  }}
                 />
                 <Bar dataKey="precip" fill={metricConfig.color} radius={[4, 4, 0, 0]} isAnimationActive={true} animationDuration={400} />
               </BarChart>
             ) : (
-              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <AreaChart data={chartData} margin={{ top: 10, right: 15, left: 5, bottom: 0 }}>
                 <defs>
                   <linearGradient id="metricGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor={metricConfig.color} stopOpacity={0.4} />
@@ -173,7 +177,7 @@ export default function TodayTab({ data, dark, meta, fs, temp, ink, inkSoft, hai
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke={hairline} vertical={false} />
                 <XAxis dataKey="time" tick={{ fontSize: 10, fill: inkSoft }} axisLine={false} tickLine={false} interval={2} />
-                <YAxis tick={{ fontSize: 10, fill: inkSoft }} axisLine={false} tickLine={false} width={30} />
+                <YAxis tick={{ fontSize: 10, fill: inkSoft }} axisLine={false} tickLine={false} width={35} />
                 <Tooltip
                   contentStyle={{
                     background: dark ? "#131826" : "#FFFFFF",
@@ -182,12 +186,15 @@ export default function TodayTab({ data, dark, meta, fs, temp, ink, inkSoft, hai
                     fontSize: 12,
                     color: ink,
                   }}
-                  labelStyle={{ color: inkSoft, fontWeight: 600 }}
-                  formatter={(v) => [`${v}${metricConfig.unit}`, metricConfig.label]}
+                  formatter={(v, name) => [
+                    `${v}${metricConfig.unit}`,
+                    name === "feelsLike" ? "Heat Index (Feels Like)" : name === "temp" ? "Actual Temperature" : metricConfig.label
+                  ]}
                 />
                 <Area
                   type="monotone"
                   dataKey={metricConfig.key}
+                  name={metricConfig.key}
                   stroke={metricConfig.color}
                   strokeWidth={2.5}
                   fill="url(#metricGradient)"
@@ -198,6 +205,7 @@ export default function TodayTab({ data, dark, meta, fs, temp, ink, inkSoft, hai
                   <Area
                     type="monotone"
                     dataKey="feelsLike"
+                    name="feelsLike"
                     stroke="#EF4444"
                     strokeWidth={2}
                     strokeDasharray="4 4"
@@ -266,6 +274,9 @@ export default function TodayTab({ data, dark, meta, fs, temp, ink, inkSoft, hai
           ))}
         </div>
       </section>
+
+      {/* ---------------- SUNRISE & SUNSET TRAJECTORY ARC WIDGET ---------------- */}
+      <SunArcWidget data={data} selectedDay={selectedDay} selectedDayIdx={selectedDayIdx} dark={dark} fs={fs} ink={ink} inkSoft={inkSoft} hairline={hairline} cardBg={cardBg} cardShadow={cardShadow} />
     </div>
   );
 }

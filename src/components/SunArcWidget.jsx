@@ -1,0 +1,195 @@
+import React from "react";
+import { Sunrise, Sunset, Sun, Moon } from "lucide-react";
+
+export default function SunArcWidget({ data, selectedDay, selectedDayIdx = 0, dark, fs, ink, inkSoft, hairline, cardBg, cardShadow }) {
+  const current = data.current;
+  const sunriseStr = selectedDay?.sunrise || current.sunrise || "5:45 AM";
+  const sunsetStr = selectedDay?.sunset || current.sunset || "6:15 PM";
+
+  // Compute progress along the sun arc (0 = Sunrise, 1 = Sunset)
+  let progress = 0.5; // default noon
+  let isSunUp = true;
+  let statusText = "";
+
+  const now = new Date();
+  const srIso = selectedDay?.sunriseIso || current.sunriseIso;
+  const ssIso = selectedDay?.sunsetIso || current.sunsetIso;
+
+  let srDate = srIso ? new Date(srIso) : new Date();
+  let ssDate = ssIso ? new Date(ssIso) : new Date();
+
+  if (!srIso || isNaN(srDate.getTime())) {
+    srDate.setHours(5, 45, 0, 0);
+    ssDate.setHours(18, 15, 0, 0);
+  }
+
+  const srMs = srDate.getTime();
+  const ssMs = ssDate.getTime();
+  const nowMs = now.getTime();
+
+  if (selectedDayIdx > 0) {
+    // For future forecast days, show clean full trajectory
+    isSunUp = true;
+    progress = 0.5;
+    statusText = `${selectedDay?.day || "Forecast"} Daylight · ${sunriseStr} – ${sunsetStr}`;
+  } else if (nowMs < srMs) {
+    isSunUp = false;
+    progress = 0;
+    const diffHours = Math.round((srMs - nowMs) / (1000 * 60 * 60));
+    statusText = `Night time · Dawn in ~${diffHours}h`;
+  } else if (nowMs > ssMs) {
+    isSunUp = false;
+    progress = 1;
+    statusText = "Night time · Sun has set";
+  } else {
+    isSunUp = true;
+    const totalDaylightMs = ssMs - srMs;
+    const elapsedMs = nowMs - srMs;
+    progress = Math.min(Math.max(elapsedMs / totalDaylightMs, 0), 1);
+    const leftHours = Math.floor((ssMs - nowMs) / (1000 * 60 * 60));
+    const leftMins = Math.round(((ssMs - nowMs) % (1000 * 60 * 60)) / (1000 * 60));
+    statusText = `Sun is up · ${leftHours}h ${leftMins}m until sunset`;
+  }
+
+  // Calculate total daylight duration
+  const totalDaylightMins = Math.round((ssMs - srMs) / (1000 * 60));
+  const daylightHours = Math.floor(totalDaylightMins / 60);
+  const daylightMins = totalDaylightMins % 60;
+
+  // Stretched Arc Math (Wide 500x130 ViewBox)
+  const cx = 250;
+  const cy = 100;
+  const rx = 210;
+  const ry = 85;
+  const angle = Math.PI * (1 - progress);
+  const sunX = cx + rx * Math.cos(angle);
+  const sunY = cy - ry * Math.sin(angle);
+
+  // Approximate arc length calculation for dashoffset
+  const approxArcLength = Math.PI * Math.sqrt((rx * rx + ry * ry) / 2);
+
+  return (
+    <div
+      className="mt-4 rounded-3xl border p-5 transition-all duration-300 backdrop-blur-xl"
+      style={{
+        borderColor: hairline,
+        background: cardBg,
+        boxShadow: cardShadow,
+      }}
+    >
+      {/* Widget Title & Status */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-amber-500/10">
+            {isSunUp ? <Sun size={16} className="text-amber-500 animate-spin-slow" /> : <Moon size={16} className="text-indigo-400" />}
+          </div>
+          <div>
+            <h3 className="font-semibold tracking-tight" style={{ fontSize: fs(13.5) }}>
+              Sun Trajectory & Daylight
+            </h3>
+            <p style={{ fontSize: fs(11), color: inkSoft }}>
+              {daylightHours}h {daylightMins}m total daylight today
+            </p>
+          </div>
+        </div>
+
+        <span className="rounded-full px-3 py-1 text-[11px] font-semibold border backdrop-blur-md" style={{ borderColor: hairline, color: isSunUp ? "#F59E0B" : "#818CF8", background: isSunUp ? "rgba(245,158,11,0.1)" : "rgba(129,140,248,0.1)" }}>
+          {statusText}
+        </span>
+      </div>
+
+      {/* Full-Width Stretched Sun Arc SVG Visualizer */}
+      <div className="relative my-3 flex justify-center w-full px-2">
+        <svg viewBox="0 0 500 130" className="w-full h-36 overflow-visible">
+          <defs>
+            <linearGradient id="sunArcGradient" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="#F59E0B" stopOpacity="0.3" />
+              <stop offset="50%" stopColor="#F59E0B" stopOpacity="0.95" />
+              <stop offset="100%" stopColor="#EF4444" stopOpacity="0.3" />
+            </linearGradient>
+            <filter id="sunGlow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="4" result="blur" />
+              <feComposite in="SourceGraphic" in2="blur" operator="over" />
+            </filter>
+          </defs>
+
+          {/* Dotted Horizon Line */}
+          <line x1="20" y1="100" x2="480" y2="100" stroke={hairline} strokeWidth="1.5" strokeDasharray="5 5" />
+
+          {/* Stretched Background Arc Track */}
+          <path
+            d="M 40 100 A 210 85 0 0 1 460 100"
+            fill="none"
+            stroke={dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)"}
+            strokeWidth="3.5"
+            strokeLinecap="round"
+          />
+
+          {/* Active Elapsed Arc Track */}
+          {isSunUp && progress > 0 && (
+            <path
+              d="M 40 100 A 210 85 0 0 1 460 100"
+              fill="none"
+              stroke="url(#sunArcGradient)"
+              strokeWidth="4"
+              strokeDasharray={approxArcLength}
+              strokeDashoffset={approxArcLength * (1 - progress)}
+              strokeLinecap="round"
+              className="transition-all duration-500"
+            />
+          )}
+
+          {/* Sun Orb Position */}
+          {isSunUp ? (
+            <g transform={`translate(${sunX}, ${sunY})`} filter="url(#sunGlow)">
+              <circle r="10" fill="#F59E0B" />
+              <circle r="16" fill="#F59E0B" opacity="0.3" className="animate-ping" />
+            </g>
+          ) : (
+            <g transform={`translate(${sunX}, ${sunY})`}>
+              <circle r="8" fill="#818CF8" />
+            </g>
+          )}
+
+          {/* Sunrise Marker Text */}
+          <text x="40" y="118" textAnchor="middle" fill={inkSoft} fontSize="11" fontWeight="600">
+            {sunriseStr}
+          </text>
+
+          {/* Solar Noon Marker */}
+          <text x="250" y="14" textAnchor="middle" fill={inkSoft} fontSize="10" opacity="0.7">
+            Solar Noon
+          </text>
+
+          {/* Sunset Marker Text */}
+          <text x="460" y="118" textAnchor="middle" fill={inkSoft} fontSize="11" fontWeight="600">
+            {sunsetStr}
+          </text>
+        </svg>
+      </div>
+
+      {/* Sunrise & Sunset Footer Details */}
+      <div className="grid grid-cols-2 gap-3 pt-2 border-t" style={{ borderColor: hairline }}>
+        <div className="flex items-center gap-2.5 rounded-2xl p-2.5" style={{ background: dark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)" }}>
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-500">
+            <Sunrise size={18} />
+          </div>
+          <div>
+            <div style={{ fontSize: fs(10.5), color: inkSoft }}>Sunrise</div>
+            <div className="font-semibold" style={{ fontSize: fs(13) }}>{sunriseStr}</div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2.5 rounded-2xl p-2.5" style={{ background: dark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)" }}>
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-rose-500/10 text-rose-500">
+            <Sunset size={18} />
+          </div>
+          <div>
+            <div style={{ fontSize: fs(10.5), color: inkSoft }}>Sunset</div>
+            <div className="font-semibold" style={{ fontSize: fs(13) }}>{sunsetStr}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

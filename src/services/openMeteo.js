@@ -2,51 +2,54 @@ import { fetchWithRetry } from "../utils/fetchWithRetry.js";
 
 /**
  * WMO Weather Interpretation Codes (WW)
- * Maps Open-Meteo codes to internal condition keys and human-readable labels.
+ * Dynamically maps Open-Meteo codes, precipitation, and cloud cover to condition keys & icons.
  */
-export function parseWMOCode(code, isNight = false) {
-  switch (code) {
-    case 0:
-      return isNight
-        ? { key: "clear-night", label: "Clear" }
-        : { key: "clear-day", label: "Sunny" };
-    case 1:
-    case 2:
-      return { key: "partly-cloudy", label: "Partly Cloudy" };
-    case 3:
-      return { key: "cloudy", label: "Overcast" };
-    case 45:
-    case 48:
-      return { key: "fog", label: "Foggy" };
-    case 51:
-    case 53:
-    case 55:
-    case 56:
-    case 57:
-      return { key: "drizzle", label: "Light Drizzle" };
-    case 61:
-    case 63:
-    case 65:
-    case 66:
-    case 67:
-    case 80:
-    case 81:
-    case 82:
-      return { key: "rain", label: "Rain" };
-    case 71:
-    case 73:
-    case 75:
-    case 77:
-    case 85:
-    case 86:
-      return { key: "snow", label: "Snowfall" };
-    case 95:
-    case 96:
-    case 99:
-      return { key: "storm", label: "Thunderstorms" };
-    default:
-      return { key: "partly-cloudy", label: "Partly Cloudy" };
+export function parseWMOCode(code, isNight = false, precipMm = null, cloudCover = 0) {
+  const c = Math.round(code ?? 0);
+  const mm = precipMm !== null ? precipMm : ([61, 63, 65, 80, 81, 82, 95, 96, 99].includes(c) ? 1.0 : [51, 53, 55, 56, 57].includes(c) ? 0.3 : 0);
+  const clouds = cloudCover ?? 0;
+
+  // 1. Thunderstorms (Only if precipitation >= 0.3mm or explicitly code 95)
+  if ([95, 96, 99].includes(c) && mm >= 0.3) {
+    return { key: "storm", label: "Thunderstorm" };
   }
+
+  // 2. Heavy / Moderate Rain (Only if precipitation >= 1.0mm or code in 61..82)
+  if (mm >= 1.0 || ([61, 63, 65, 80, 81, 82].includes(c) && mm >= 0.5)) {
+    return { key: "rain", label: "Rain" };
+  }
+
+  // 3. Light Drizzle (Only if actual hourly rainfall is >= 0.25mm)
+  if (mm >= 0.25) {
+    return { key: "drizzle", label: "Light Drizzle" };
+  }
+
+  // 4. Snow
+  if ([71, 73, 75, 77, 85, 86].includes(c)) {
+    return { key: "snow", label: "Snowfall" };
+  }
+
+  // 5. Fog
+  if ([45, 48].includes(c)) {
+    return { key: "fog", label: "Foggy" };
+  }
+
+  // 6. Overcast Cloudiness
+  if (clouds >= 75 || c === 3) {
+    return { key: "cloudy", label: "Overcast" };
+  }
+
+  // 7. Partly Cloudy
+  if (clouds >= 25 || c === 1 || c === 2) {
+    return isNight
+      ? { key: "partly-cloudy-night", label: "Partly Cloudy" }
+      : { key: "partly-cloudy", label: "Partly Cloudy" };
+  }
+
+  // 8. Clear Sky
+  return isNight
+    ? { key: "clear-night", label: "Clear Night" }
+    : { key: "clear-day", label: "Sunny" };
 }
 
 /**
@@ -176,11 +179,22 @@ export async function fetchRealWeather(location) {
   const daily = [];
   const dailyTimeList = dailyRaw.time || [];
 
+function computeRealisticPrecipChance(rawProb, precipMm) {
+  if (!precipMm || precipMm <= 0) return 0;
+  if (precipMm < 0.2) return Math.min(Math.round(rawProb ?? 0), 20); // Negligible trace (10%-20%)
+  if (precipMm < 0.5) return Math.min(Math.round(rawProb ?? 0), 30); // Light rain onset (30% - Google Weather match)
+  if (precipMm < 1.5) return Math.min(Math.round(rawProb ?? 0), 45); // Light Rain (40%-45%)
+  if (precipMm < 3.5) return Math.min(Math.round(rawProb ?? 0), 65); // Moderate Rain (60%-65%)
+  if (precipMm < 7.6) return Math.min(Math.round(rawProb ?? 0), 80); // Heavy Rain (80%)
+  return Math.round(rawProb ?? 0);                                   // Downpour / Storm (90%-100%)
+}
+
   for (let dayIdx = 0; dayIdx < Math.min(7, dailyTimeList.length); dayIdx++) {
     const d = new Date(dailyTimeList[dayIdx]);
     const dayName = dayIdx === 0 ? "Today" : days[d.getDay()];
     const dayNum = d.getDate();
-    const dCondition = parseWMOCode(dailyRaw.weather_code?.[dayIdx] ?? 0).key;
+    const precipSumMm = +(dailyRaw.precipitation_sum?.[dayIdx] ?? dailyRaw.rain_sum?.[dayIdx] ?? 0).toFixed(1);
+    const dCondition = parseWMOCode(dailyRaw.weather_code?.[dayIdx] ?? 0, false, precipSumMm).key;
 
     // Extract 24 hours for this specific day
     const dayHourly = [];
@@ -190,24 +204,28 @@ export async function fetchRealWeather(location) {
         const t = new Date(hourlyRaw.time[hIdx]);
         const h = t.getHours();
         const hIsNight = h < 6 || h >= 19;
-        const hCond = parseWMOCode(hourlyRaw.weather_code?.[hIdx] ?? 0, hIsNight).key;
         const tempC = Math.round(hourlyRaw.temperature_2m?.[hIdx] ?? 25);
         const feelsLikeC = Math.round(hourlyRaw.apparent_temperature?.[hIdx] ?? tempC);
         const precipMm = +(hourlyRaw.precipitation?.[hIdx] ?? hourlyRaw.rain?.[hIdx] ?? 0).toFixed(1);
+        const cloudCover = Math.round(hourlyRaw.cloud_cover?.[hIdx] ?? 20);
+        const hCondObj = parseWMOCode(hourlyRaw.weather_code?.[hIdx] ?? 0, hIsNight, precipMm, cloudCover);
+        const rawProb = hourlyRaw.precipitation_probability?.[hIdx] ?? 0;
+        const precipChance = computeRealisticPrecipChance(rawProb, precipMm);
 
         dayHourly.push({
           time: dayIdx === 0 && hIdx === new Date().getHours() ? "Now" : t.toLocaleTimeString([], { hour: "numeric" }),
           hour24: h,
           tempC,
           feelsLikeC, // Real Heat Index / Apparent Temperature
-          condition: hCond,
-          precipChance: Math.round(hourlyRaw.precipitation_probability?.[hIdx] ?? 0),
+          condition: hCondObj.key,
+          conditionLabel: hCondObj.label,
+          precipChance, // Realistic precipitation probability percentage
           precipMm, // Exact hourly precipitation in millimeters
           windKph: Math.round(hourlyRaw.wind_speed_10m?.[hIdx] ?? 10),
           humidity: Math.round(hourlyRaw.relative_humidity_2m?.[hIdx] ?? 60),
           uvIndex: Math.round(hourlyRaw.uv_index?.[hIdx] ?? 0),
           pressureHpa: Math.round(hourlyRaw.pressure_msl?.[hIdx] ?? 1013),
-          cloudCover: Math.round(hourlyRaw.cloud_cover?.[hIdx] ?? 20),
+          cloudCover,
         });
       }
     }
@@ -216,7 +234,17 @@ export async function fetchRealWeather(location) {
     const loC = Math.round(dailyRaw.temperature_2m_min?.[dayIdx] ?? todayLo);
     const heatIndexHiC = Math.round(dailyRaw.apparent_temperature_max?.[dayIdx] ?? hiC);
     const heatIndexLoC = Math.round(dailyRaw.apparent_temperature_min?.[dayIdx] ?? loC);
-    const precipSumMm = +(dailyRaw.precipitation_sum?.[dayIdx] ?? dailyRaw.rain_sum?.[dayIdx] ?? 0).toFixed(1);
+    const rawDailyMaxProb = dailyRaw.precipitation_probability_max?.[dayIdx] ?? 0;
+    
+    // Average hourly precipitation probability for realistic daily representation
+    const precipChance = dayHourly.length > 0
+      ? Math.round(dayHourly.reduce((sum, item) => sum + item.precipChance, 0) / dayHourly.length)
+      : computeRealisticPrecipChance(rawDailyMaxProb, precipSumMm);
+
+    const srIso = dailyRaw.sunrise?.[dayIdx] || null;
+    const ssIso = dailyRaw.sunset?.[dayIdx] || null;
+    const sunrise = srIso ? new Date(srIso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "5:45 AM";
+    const sunset = ssIso ? new Date(ssIso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "6:15 PM";
 
     daily.push({
       dayIdx,
@@ -229,8 +257,12 @@ export async function fetchRealWeather(location) {
       heatIndexHiC,
       heatIndexLoC,
       condition: dCondition,
-      precipChance: Math.round(dailyRaw.precipitation_probability_max?.[dayIdx] ?? 0),
+      precipChance,
       precipSumMm, // Total daily precipitation in mm
+      sunrise,
+      sunset,
+      sunriseIso: srIso,
+      sunsetIso: ssIso,
       hourly: dayHourly.length > 0 ? dayHourly : [],
     });
   }
@@ -261,9 +293,11 @@ export async function fetchRealWeather(location) {
     visibilityKm: 10,
     pressureHpa: Math.round(currentRaw.pressure_msl ?? currentRaw.surface_pressure ?? 1013),
     uvIndex: Math.round(dailyRaw.uv_index_max?.[0] ?? (isNight ? 0 : 5)),
-    precipChance: Math.round(dailyRaw.precipitation_probability_max?.[0] ?? 0),
+    precipChance: daily[0]?.precipChance ?? 30,
     sunrise: dailyRaw.sunrise?.[0] ? new Date(dailyRaw.sunrise[0]).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "5:45 AM",
     sunset: dailyRaw.sunset?.[0] ? new Date(dailyRaw.sunset[0]).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "6:15 PM",
+    sunriseIso: dailyRaw.sunrise?.[0] || null,
+    sunsetIso: dailyRaw.sunset?.[0] || null,
   };
 
   return {

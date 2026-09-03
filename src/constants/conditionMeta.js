@@ -1,5 +1,5 @@
 import {
-  Sun, Cloud, CloudRain, CloudSnow, CloudLightning, CloudDrizzle, CloudFog, Moon
+  Sun, Cloud, CloudRain, CloudSnow, CloudLightning, CloudDrizzle, CloudFog, Moon, CloudSun, CloudMoon
 } from "lucide-react";
 
 export const DEFAULT_CITIES = [
@@ -14,7 +14,8 @@ export const DEFAULT_CITIES = [
 export const CONDITION_META = {
   "clear-day": { Icon: Sun, gradientLight: ["#FFDD8A", "#FF9F5A"], gradientDark: ["#2A2410", "#0D1321"], accent: "#F2994A", heroText: "#3A2308" },
   "clear-night": { Icon: Moon, gradientLight: ["#A5B4FC", "#6366F1"], gradientDark: ["#141B31", "#0A0E1C"], accent: "#6366F1", heroText: "#1E1B4B" },
-  "partly-cloudy": { Icon: Cloud, gradientLight: ["#93C5FD", "#3B82F6"], gradientDark: ["#1A2236", "#0D1321"], accent: "#2F80ED", heroText: "#0F2A4D" },
+  "partly-cloudy": { Icon: CloudSun, gradientLight: ["#93C5FD", "#3B82F6"], gradientDark: ["#1A2236", "#0D1321"], accent: "#2F80ED", heroText: "#0F2A4D" },
+  "partly-cloudy-night": { Icon: CloudMoon, gradientLight: ["#93C5FD", "#3B82F6"], gradientDark: ["#1A2236", "#0D1321"], accent: "#6366F1", heroText: "#0F2A4D" },
   cloudy: { Icon: Cloud, gradientLight: ["#B9C6D6", "#7C93AD"], gradientDark: ["#1B1F2B", "#0D1321"], accent: "#5B7590", heroText: "#1C2937" },
   drizzle: { Icon: CloudDrizzle, gradientLight: ["#7DD3FC", "#0EA5E9"], gradientDark: ["#101E2B", "#0A141F"], accent: "#0284C7", heroText: "#082F49" },
   rain: { Icon: CloudRain, gradientLight: ["#60A5FA", "#2563EB"], gradientDark: ["#0E1C2B", "#08121C"], accent: "#2563EB", heroText: "#0B1B3D" },
@@ -36,22 +37,16 @@ export function insightList(current) {
   if (current.humidity > 70 && current.feelsLikeC > current.tempC) {
     insights.push(`Feels ${current.feelsLikeC - current.tempC}° warmer because of humidity.`);
   }
-  if (current.precipChance >= 40) insights.push(`Rain likely — ${current.precipChance}% chance today.`);
+  if (current.precipChance >= 25) insights.push(`Rain chance — ${current.precipChance}% avg today.`);
+  else insights.push("Low chance of rain today.");
   if (current.uvIndex >= 7) insights.push("High UV — sunscreen recommended.");
   if (current.windKph >= 25) insights.push("Strong winds expected — secure loose items outdoors.");
-  if (insights.length === 0) {
-    insights.push(
-      current.tempC >= 22 && current.tempC <= 29 && current.precipChance < 20
-        ? "Good conditions for outdoor activities."
-        : "Fairly typical conditions for today."
-    );
-  }
   return insights;
 }
 
 export function buildBriefing(data, name) {
   const c = data.current;
-  const rainNote = c.precipChance >= 40 ? ` with a ${c.precipChance}% chance of rain` : "";
+  const rainNote = c.precipChance >= 20 ? ` with a ${c.precipChance}% average chance of rain` : "";
   const windNote = c.windKph >= 20 ? " Winds will be noticeably breezy." : " Winds stay light.";
   const uvNote = c.uvIndex >= 7 ? " UV runs high around midday, sunscreen recommended." : "";
   return `Good ${new Date().getHours() < 12 ? "morning" : new Date().getHours() < 18 ? "afternoon" : "evening"} — ${name} sees a high near ${Math.round(c.highC)}° and a low near ${Math.round(c.lowC)}° today${rainNote}.${windNote}${uvNote}`;

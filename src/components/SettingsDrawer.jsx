@@ -47,7 +47,16 @@ export default function SettingsDrawer({
             ].map(([key, label, Icon]) => (
               <label key={key} className="flex items-center justify-between rounded-xl border px-3 py-2.5 cursor-pointer" style={{ borderColor: hairline }}>
                 <span className="flex items-center gap-2" style={{ fontSize: fs(13) }}><Icon size={14} style={{ color: inkSoft }} />{label}</span>
-                <input type="checkbox" checked={accessibility[key]} onChange={(e) => setAccessibility((a) => ({ ...a, [key]: e.target.checked }))} className="h-4 w-4 rounded text-blue-600 focus:ring-blue-500" />
+                <input
+                  type="checkbox"
+                  checked={accessibility[key]}
+                  onChange={(e) => {
+                    const updatedAcc = { ...accessibility, [key]: e.target.checked };
+                    setAccessibility(updatedAcc);
+                    saveSetting("accessibility", updatedAcc);
+                  }}
+                  className="h-4 w-4 rounded text-blue-600 focus:ring-blue-500"
+                />
               </label>
             ))}
           </div>

@@ -11,48 +11,68 @@ export default function SunArcWidget({ data, selectedDay, selectedDayIdx = 0, da
   let isSunUp = true;
   let statusText = "";
 
-  const now = new Date();
+  // Get Target City's Local Time
+  const utcOffsetSec = data.location?.utcOffsetSeconds ?? current.utcOffsetSeconds;
+  const sysNow = new Date();
+  let cityNow = sysNow;
+  if (typeof utcOffsetSec === "number") {
+    const utcMs = sysNow.getTime() + (sysNow.getTimezoneOffset() * 60000);
+    cityNow = new Date(utcMs + (utcOffsetSec * 1000));
+  }
+
   const srIso = selectedDay?.sunriseIso || current.sunriseIso;
   const ssIso = selectedDay?.sunsetIso || current.sunsetIso;
 
-  let srDate = srIso ? new Date(srIso) : new Date();
-  let ssDate = ssIso ? new Date(ssIso) : new Date();
+  // Extract hours & minutes in city local time
+  let srMins = 5 * 60 + 45; // default 5:45 AM
+  let ssMins = 18 * 60 + 15; // default 6:15 PM
 
-  if (!srIso || isNaN(srDate.getTime())) {
-    srDate.setHours(5, 45, 0, 0);
-    ssDate.setHours(18, 15, 0, 0);
+  if (srIso && srIso.includes("T")) {
+    const [h, m] = srIso.split("T")[1].split(":").map(Number);
+    if (!isNaN(h) && !isNaN(m)) srMins = h * 60 + m;
+  }
+  if (ssIso && ssIso.includes("T")) {
+    const [h, m] = ssIso.split("T")[1].split(":").map(Number);
+    if (!isNaN(h) && !isNaN(m)) ssMins = h * 60 + m;
   }
 
-  const srMs = srDate.getTime();
-  const ssMs = ssDate.getTime();
-  const nowMs = now.getTime();
+  const nowMins = cityNow.getHours() * 60 + cityNow.getMinutes();
 
   if (selectedDayIdx > 0) {
     // For future forecast days, show clean full trajectory
     isSunUp = true;
     progress = 0.5;
     statusText = `${selectedDay?.day || "Forecast"} Daylight · ${sunriseStr} – ${sunsetStr}`;
-  } else if (nowMs < srMs) {
+  } else if (nowMins < srMins) {
     isSunUp = false;
     progress = 0;
-    const diffHours = Math.round((srMs - nowMs) / (1000 * 60 * 60));
-    statusText = `Night time · Dawn in ~${diffHours}h`;
-  } else if (nowMs > ssMs) {
+    const diffMins = srMins - nowMins;
+    const diffHours = Math.floor(diffMins / 60);
+    statusText = `Night time · Dawn in ~${diffHours > 0 ? `${diffHours}h` : `${diffMins}m`}`;
+  } else if (nowMins > ssMins) {
     isSunUp = false;
     progress = 1;
     statusText = "Night time · Sun has set";
   } else {
     isSunUp = true;
-    const totalDaylightMs = ssMs - srMs;
-    const elapsedMs = nowMs - srMs;
-    progress = Math.min(Math.max(elapsedMs / totalDaylightMs, 0), 1);
-    const leftHours = Math.floor((ssMs - nowMs) / (1000 * 60 * 60));
-    const leftMins = Math.round(((ssMs - nowMs) % (1000 * 60 * 60)) / (1000 * 60));
-    statusText = `Sun is up · ${leftHours}h ${leftMins}m until sunset`;
+    const totalDaylightMins = ssMins - srMins;
+    const elapsedMins = nowMins - srMins;
+    progress = Math.min(Math.max(elapsedMins / totalDaylightMins, 0), 1);
+    const leftMins = ssMins - nowMins;
+    const leftHours = Math.floor(leftMins / 60);
+    const remMins = leftMins % 60;
+    statusText = `Sun is up · ${leftHours > 0 ? `${leftHours}h ${remMins}m` : `${remMins}m`} until sunset`;
   }
 
-  // Calculate total daylight duration
-  const totalDaylightMins = Math.round((ssMs - srMs) / (1000 * 60));
+  // Calculate total daylight duration from ISO strings if available
+  let totalDaylightMins = 750;
+  if (srIso && ssIso && srIso.includes("T") && ssIso.includes("T")) {
+    const [srH, srM] = srIso.split("T")[1].split(":").map(Number);
+    const [ssH, ssM] = ssIso.split("T")[1].split(":").map(Number);
+    if (!isNaN(srH) && !isNaN(ssH)) {
+      totalDaylightMins = (ssH * 60 + ssM) - (srH * 60 + srM);
+    }
+  }
   const daylightHours = Math.floor(totalDaylightMins / 60);
   const daylightMins = totalDaylightMins % 60;
 
@@ -67,6 +87,8 @@ export default function SunArcWidget({ data, selectedDay, selectedDayIdx = 0, da
 
   // Approximate arc length calculation for dashoffset
   const approxArcLength = Math.PI * Math.sqrt((rx * rx + ry * ry) / 2);
+
+  const locName = data?.location?.name || "";
 
   return (
     <div
@@ -85,7 +107,7 @@ export default function SunArcWidget({ data, selectedDay, selectedDayIdx = 0, da
           </div>
           <div>
             <h3 className="font-semibold tracking-tight" style={{ fontSize: fs(13.5) }}>
-              Sun Trajectory & Daylight
+              Sun Trajectory & Daylight {locName ? `· ${locName}` : ""}
             </h3>
             <p style={{ fontSize: fs(11), color: inkSoft }}>
               {daylightHours}h {daylightMins}m total daylight today

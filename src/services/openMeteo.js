@@ -1,5 +1,18 @@
 import { fetchWithRetry } from "../utils/fetchWithRetry.js";
 
+export function formatLocalTimeFromIso(isoStr, fallback = "6:00 AM") {
+  if (!isoStr) return fallback;
+  const parts = isoStr.split("T");
+  if (parts.length < 2) return fallback;
+  const [hStr, mStr] = parts[1].split(":");
+  let h = parseInt(hStr, 10);
+  const m = parseInt(mStr, 10);
+  if (isNaN(h) || isNaN(m)) return fallback;
+  const ampm = h >= 12 ? "PM" : "AM";
+  h = h % 12 || 12;
+  return `${h}:${m < 10 ? "0" : ""}${m} ${ampm}`;
+}
+
 /**
  * WMO Weather Interpretation Codes (WW)
  * Dynamically maps Open-Meteo codes, precipitation, and cloud cover to condition keys & icons.
@@ -243,8 +256,8 @@ function computeRealisticPrecipChance(rawProb, precipMm) {
 
     const srIso = dailyRaw.sunrise?.[dayIdx] || null;
     const ssIso = dailyRaw.sunset?.[dayIdx] || null;
-    const sunrise = srIso ? new Date(srIso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "5:45 AM";
-    const sunset = ssIso ? new Date(ssIso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "6:15 PM";
+    const sunrise = formatLocalTimeFromIso(srIso, "5:45 AM");
+    const sunset = formatLocalTimeFromIso(ssIso, "6:15 PM");
 
     daily.push({
       dayIdx,
@@ -294,15 +307,22 @@ function computeRealisticPrecipChance(rawProb, precipMm) {
     pressureHpa: Math.round(currentRaw.pressure_msl ?? currentRaw.surface_pressure ?? 1013),
     uvIndex: Math.round(dailyRaw.uv_index_max?.[0] ?? (isNight ? 0 : 5)),
     precipChance: daily[0]?.precipChance ?? 30,
-    sunrise: dailyRaw.sunrise?.[0] ? new Date(dailyRaw.sunrise[0]).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "5:45 AM",
-    sunset: dailyRaw.sunset?.[0] ? new Date(dailyRaw.sunset[0]).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "6:15 PM",
+    sunrise: formatLocalTimeFromIso(dailyRaw.sunrise?.[0], "5:45 AM"),
+    sunset: formatLocalTimeFromIso(dailyRaw.sunset?.[0], "6:15 PM"),
     sunriseIso: dailyRaw.sunrise?.[0] || null,
     sunsetIso: dailyRaw.sunset?.[0] || null,
   };
 
+  const utcOffsetSeconds = fData.utc_offset_seconds ?? 28800;
+  const timezoneStr = fData.timezone || "auto";
+
   return {
-    location: { name, region, lat, lon },
-    current,
+    location: { name, region, lat, lon, utcOffsetSeconds, timezone: timezoneStr },
+    current: {
+      ...current,
+      utcOffsetSeconds,
+      timezone: timezoneStr,
+    },
     hourly,
     daily,
     airQuality: {

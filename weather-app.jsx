@@ -11,6 +11,7 @@ import ErrorBoundary from "./src/components/ErrorBoundary.jsx";
 import WeatherAtmosphere from "./src/components/WeatherAtmosphere.jsx";
 import Header from "./src/components/Header.jsx";
 import SearchBar from "./src/components/SearchBar.jsx";
+import FavoriteCitiesBar from "./src/components/FavoriteCitiesBar.jsx";
 import HeroCard from "./src/components/HeroCard.jsx";
 import DailyBriefing from "./src/components/DailyBriefing.jsx";
 import MetricsGrid from "./src/components/MetricsGrid.jsx";
@@ -42,6 +43,15 @@ function WeatherAppContent() {
   useEffect(() => {
     getSetting("lang", "en").then(setLang);
     getSetting("themeMode", "dark").then(setThemeMode);
+    getSetting("accessibility", { largeText: false, reducedMotion: false, highContrast: false }).then(setAccessibility);
+    getSetting("favoriteCities", []).then((favs) => {
+      if (Array.isArray(favs)) setSavedCities(favs);
+    });
+    getSetting("lastActiveCity", null).then((savedCity) => {
+      if (savedCity && savedCity.lat && savedCity.lon) {
+        setActiveCity(savedCity);
+      }
+    });
   }, []);
 
   useEffect(() => {
@@ -67,7 +77,7 @@ function WeatherAppContent() {
   const [searchResults, setSearchResults] = useState([]);
   const [searchOpen, setSearchOpen] = useState(false);
   const [activeCity, setActiveCity] = useState(DEFAULT_CITIES[0]);
-  const [saved, setSaved] = useState([DEFAULT_CITIES[0].name]);
+  const [savedCities, setSavedCities] = useState([]);
   const [recentSearches, setRecentSearches] = useState([]);
 
   // Voice Search Hook
@@ -213,14 +223,29 @@ function WeatherAppContent() {
 
   function selectCity(city) {
     setActiveCity(city);
+    saveSetting("lastActiveCity", city);
     setQuery("");
     setSearchOpen(false);
     setRecentSearches((r) => [city.name, ...r.filter((n) => n !== city.name)].slice(0, 5));
     load(city, { force: true });
   }
 
-  function toggleSave(cityName) {
-    setSaved((s) => (s.includes(cityName) ? s.filter((n) => n !== cityName) : [...s, cityName]));
+  function toggleSave(locationObj) {
+    const loc = typeof locationObj === "string" ? { name: locationObj, region: "", lat: activeCity.lat, lon: activeCity.lon } : locationObj;
+    setSavedCities((prev) => {
+      const exists = prev.some((c) => c.name.toLowerCase() === loc.name.toLowerCase());
+      const updated = exists ? prev.filter((c) => c.name.toLowerCase() !== loc.name.toLowerCase()) : [...prev, loc];
+      saveSetting("favoriteCities", updated);
+      return updated;
+    });
+  }
+
+  function removeFavorite(cityName) {
+    setSavedCities((prev) => {
+      const updated = prev.filter((c) => c.name.toLowerCase() !== cityName.toLowerCase());
+      saveSetting("favoriteCities", updated);
+      return updated;
+    });
   }
 
   async function requestNotifications() {
@@ -350,7 +375,20 @@ function WeatherAppContent() {
                 hairline={hairline} cardShadow={cardShadow} fs={fs} lang={lang} meta={meta} voiceSearch={voiceSearch}
                 onSelectCity={selectCity}
               />
-              <HeroCard data={displayData} dark={dark} meta={meta} fs={fs} temp={temp} saved={saved} onToggleSave={toggleSave} reducedMotion={accessibility.reducedMotion} />
+              <FavoriteCitiesBar
+                savedCities={savedCities}
+                activeCity={activeCity}
+                onSelectCity={selectCity}
+                onRemoveFavorite={removeFavorite}
+                onToggleFavorite={() => toggleSave(data.location)}
+                dark={dark}
+                ink={ink}
+                inkSoft={inkSoft}
+                hairline={hairline}
+                fs={fs}
+                meta={meta}
+              />
+              <HeroCard data={displayData} dark={dark} meta={meta} fs={fs} temp={temp} saved={savedCities.map((c) => c.name)} onToggleSave={() => toggleSave(data.location)} reducedMotion={accessibility.reducedMotion} />
               <DailyBriefing data={displayData} briefingOpen={briefingOpen} setBriefingOpen={setBriefingOpen} meta={meta} fs={fs} inkSoft={inkSoft} hairline={hairline} cardBg={cardBg} cardShadow={cardShadow} />
               <MetricsGrid data={displayData} dark={dark} fs={fs} speed={speed} onOpenGuide={(key) => { setSelectedGuideKey(key); setGuideModalOpen(true); }} />
             </div>
@@ -363,7 +401,7 @@ function WeatherAppContent() {
                 ))}
               </div>
 
-              {tab === "today" && <TodayTab data={data} selectedDayIdx={selectedDayIdx} setSelectedDayIdx={setSelectedDayIdx} dark={dark} meta={meta} fs={fs} temp={temp} lang={lang} ink={ink} inkSoft={inkSoft} hairline={hairline} cardBg={cardBg} cardShadow={cardShadow} />}
+              {tab === "today" && <TodayTab data={displayData} selectedDayIdx={selectedDayIdx} setSelectedDayIdx={setSelectedDayIdx} dark={dark} meta={meta} fs={fs} temp={temp} lang={lang} ink={ink} inkSoft={inkSoft} hairline={hairline} cardBg={cardBg} cardShadow={cardShadow} />}
               {tab === "environment" && <EnvironmentTab data={data} dark={dark} fs={fs} lang={lang} inkSoft={inkSoft} hairline={hairline} cardBg={cardBg} cardShadow={cardShadow} />}
               {tab === "map" && <MapTab lat={data.location.lat} lon={data.location.lon} locationName={data.location.name} dark={dark} hairline={hairline} cardBg={cardBg} cardShadow={cardShadow} fs={fs} />}
               {tab === "history" && <HistoryTab data={data} temp={temp} fs={fs} inkSoft={inkSoft} hairline={hairline} />}

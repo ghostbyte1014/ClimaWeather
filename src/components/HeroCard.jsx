@@ -45,7 +45,7 @@ export default function HeroCard({ data, dark, meta, fs, temp, saved, onToggleSa
         </div>
 
         <button
-          onClick={() => onToggleSave(data.location.name)}
+          onClick={() => onToggleSave(data.location)}
           aria-label="Save location"
           className="flex h-9 w-9 items-center justify-center rounded-full backdrop-blur-md transition-transform hover:scale-110 active:scale-95"
           style={{ background: dark ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.3)" }}

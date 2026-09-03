@@ -120,5 +120,14 @@ This project requires **no paid API keys or credit cards**:
 
 ---
 
-## 📄 License
-This project is open-source and available under the [MIT License](LICENSE).
+## 🔒 Privacy Policy
+
+At **ClimaWeather** by **GhostByte**, your privacy is simple and transparent:
+1. **No Personal Tracking**: No name, email, account, or analytics tracking required.
+2. **Local Location Processing**: GPS/IP location is processed strictly in your browser to fetch local forecasts. It is **never stored on external servers** or sold.
+3. **Local Device Storage**: Saved cities and temperature units remain strictly on your device inside IndexedDB.
+
+---
+
+## 📄 Copyright & License
+© 2026 **GhostByte**. All rights reserved. Available under the [MIT License](LICENSE).

@@ -1,16 +1,16 @@
 import React from "react";
-import { X, Globe, Contrast, Type, PlayCircle, Download } from "lucide-react";
+import { X, Globe, Contrast, Type, PlayCircle, Download, ShieldCheck, Heart } from "lucide-react";
 import { t } from "../utils/i18n.js";
 
 export default function SettingsDrawer({
   settingsOpen, setSettingsOpen, lang, setLang, themeMode, setThemeMode,
   accessibility, setAccessibility, installEvent, installApp, saveSetting,
-  dark, ink, inkSoft, hairline, fs, meta
+  dark, ink, inkSoft, hairline, fs, meta, onOpenPrivacy
 }) {
   if (!settingsOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-30 flex items-end justify-center sm:items-center" style={{ background: "rgba(0,0,0,0.4)" }} onClick={() => setSettingsOpen(false)}>
+    <div className="fixed inset-0 z-30 flex items-end justify-center sm:items-center" style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }} onClick={() => setSettingsOpen(false)}>
       <div onClick={(e) => e.stopPropagation()} className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-3xl sm:rounded-3xl px-5 py-5" style={{ background: dark ? "#131826" : "#FFFFFF", color: ink }}>
         <div className="mb-4 flex items-center justify-between">
           <span className="font-semibold" style={{ fontSize: fs(15) }}>{t("settings", lang)}</span>
@@ -32,7 +32,7 @@ export default function SettingsDrawer({
           <div className="mb-2 font-medium" style={{ fontSize: fs(12.5), color: inkSoft }}>{t("theme", lang)}</div>
           <div className="flex gap-2">
             {["light", "dark", "auto"].map((m) => (
-              <button key={m} onClick={() => { setThemeMode(m); saveSetting("themeMode", m); }} className="flex-1 rounded-xl border py-2 capitalize" style={{ borderColor: hairline, background: themeMode === m ? meta.accent + "26" : "transparent", fontSize: fs(12.5) }}>{m}</button>
+              <button key={m} onClick={() => { setThemeMode(m); saveSetting("themeMode", m); }} className="flex-1 rounded-xl border py-2 capitalize font-medium" style={{ borderColor: hairline, background: themeMode === m ? meta.accent + "26" : "transparent", fontSize: fs(12.5) }}>{m}</button>
             ))}
           </div>
         </div>
@@ -45,12 +45,26 @@ export default function SettingsDrawer({
               ["reducedMotion", "Reduce motion", PlayCircle],
               ["highContrast", "High contrast", Contrast],
             ].map(([key, label, Icon]) => (
-              <label key={key} className="flex items-center justify-between rounded-xl border px-3 py-2.5" style={{ borderColor: hairline }}>
+              <label key={key} className="flex items-center justify-between rounded-xl border px-3 py-2.5 cursor-pointer" style={{ borderColor: hairline }}>
                 <span className="flex items-center gap-2" style={{ fontSize: fs(13) }}><Icon size={14} style={{ color: inkSoft }} />{label}</span>
-                <input type="checkbox" checked={accessibility[key]} onChange={(e) => setAccessibility((a) => ({ ...a, [key]: e.target.checked }))} className="h-4 w-4" />
+                <input type="checkbox" checked={accessibility[key]} onChange={(e) => setAccessibility((a) => ({ ...a, [key]: e.target.checked }))} className="h-4 w-4 rounded text-blue-600 focus:ring-blue-500" />
               </label>
             ))}
           </div>
+        </div>
+
+        {/* Privacy Policy & Copyright Section */}
+        <div className="mb-5 space-y-2">
+          <button
+            onClick={() => { setSettingsOpen(false); onOpenPrivacy?.(); }}
+            className="flex w-full items-center justify-between rounded-xl border px-3 py-2.5 font-medium text-xs text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+            style={{ borderColor: hairline }}
+          >
+            <span className="flex items-center gap-2">
+              <ShieldCheck size={15} /> Privacy Policy
+            </span>
+            <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300">No Tracking</span>
+          </button>
         </div>
 
         {installEvent && (
@@ -60,6 +74,19 @@ export default function SettingsDrawer({
             </button>
           </div>
         )}
+
+        {/* Copyright Footer */}
+        <div className="border-t pt-4 text-center text-xs space-y-0.5" style={{ borderColor: hairline, color: inkSoft }}>
+          <div className="font-semibold text-slate-300">
+            Developer: ghostbyte1014
+          </div>
+          <div className="text-[11.5px]">
+            © {new Date().getFullYear()} GhostByte. All rights reserved.
+          </div>
+          <div className="text-[11px] opacity-75">
+            ClimaWeather v2.0 · Powered by Open-Meteo
+          </div>
+        </div>
       </div>
     </div>
   );

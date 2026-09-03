@@ -23,6 +23,7 @@ import HistoryTab from "./src/components/Tabs/HistoryTab.jsx";
 import CompareTab from "./src/components/Tabs/CompareTab.jsx";
 import SettingsDrawer from "./src/components/SettingsDrawer.jsx";
 import WeatherGuideModal from "./src/components/WeatherGuideModal.jsx";
+import PrivacyModal from "./src/components/PrivacyModal.jsx";
 
 function WeatherAppContent() {
   // Service Worker registration
@@ -85,10 +86,11 @@ function WeatherAppContent() {
   const [error, setError] = useState(null);
   const [isOnline, setIsOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
 
-  // Tabs & Panels & Guide Modal
+  // Tabs & Panels & Guide / Privacy Modals
   const [tab, setTab] = useState("today");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [guideModalOpen, setGuideModalOpen] = useState(false);
+  const [privacyModalOpen, setPrivacyModalOpen] = useState(false);
   const [selectedGuideKey, setSelectedGuideKey] = useState(null);
   const [briefingOpen, setBriefingOpen] = useState(true);
   const [dismissedAlerts, setDismissedAlerts] = useState([]);
@@ -344,6 +346,17 @@ function WeatherAppContent() {
             </div>
           </div>
         )}
+
+        {/* GhostByte Page Footer */}
+        <footer className="mt-10 border-t pt-6 text-center text-xs" style={{ borderColor: hairline, color: inkSoft }}>
+          <div className="flex items-center justify-center gap-3">
+            <span>© {new Date().getFullYear()} <strong>GhostByte</strong>. All rights reserved.</span>
+            <span>•</span>
+            <button onClick={() => setPrivacyModalOpen(true)} className="text-emerald-400 hover:underline font-medium">
+              Privacy Policy
+            </button>
+          </div>
+        </footer>
       </div>
 
       <SettingsDrawer
@@ -351,12 +364,23 @@ function WeatherAppContent() {
         themeMode={themeMode} setThemeMode={setThemeMode} accessibility={accessibility} setAccessibility={setAccessibility}
         installEvent={installEvent} installApp={installApp} saveSetting={saveSetting} dark={dark} ink={ink}
         inkSoft={inkSoft} hairline={hairline} fs={fs} meta={meta}
+        onOpenPrivacy={() => setPrivacyModalOpen(true)}
       />
 
       <WeatherGuideModal
         isOpen={guideModalOpen}
         onClose={() => setGuideModalOpen(false)}
         selectedKey={selectedGuideKey}
+        dark={dark}
+        ink={ink}
+        inkSoft={inkSoft}
+        hairline={hairline}
+        fs={fs}
+      />
+
+      <PrivacyModal
+        isOpen={privacyModalOpen}
+        onClose={() => setPrivacyModalOpen(false)}
         dark={dark}
         ink={ink}
         inkSoft={inkSoft}

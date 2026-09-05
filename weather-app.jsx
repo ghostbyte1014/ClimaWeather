@@ -207,6 +207,7 @@ function WeatherAppContent() {
   }, []);
 
   function selectCity(city) {
+    navigator.vibrate?.(50);
     setActiveCity(city);
     saveSetting("lastActiveCity", city);
     setQuery("");
@@ -216,6 +217,7 @@ function WeatherAppContent() {
   }
 
   function toggleSave(locationObj) {
+    navigator.vibrate?.(50);
     const loc = typeof locationObj === "string" ? { name: locationObj, region: "", lat: activeCity.lat, lon: activeCity.lon } : locationObj;
     setSavedCities((prev) => {
       const exists = prev.some((c) => c.name.toLowerCase() === loc.name.toLowerCase());
@@ -226,6 +228,7 @@ function WeatherAppContent() {
   }
 
   function removeFavorite(cityName) {
+    navigator.vibrate?.(50);
     setSavedCities((prev) => {
       const updated = prev.filter((c) => c.name.toLowerCase() !== cityName.toLowerCase());
       saveSetting("favoriteCities", updated);
@@ -342,9 +345,17 @@ function WeatherAppContent() {
         )}
 
         {loading && !data && (
-          <div className="flex flex-col items-center justify-center gap-3 rounded-3xl py-20" style={{ background: cardBg, boxShadow: cardShadow }}>
-            <Loader2 size={22} className="animate-spin" style={{ color: meta.accent }} />
-            <span style={{ fontSize: fs(13), color: inkSoft }}>Fetching real weather...</span>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 animate-pulse mt-4">
+            <div className="space-y-4 lg:col-span-5 xl:col-span-4">
+              <div className="h-12 w-full rounded-2xl" style={{ background: cardBg, boxShadow: cardShadow }} />
+              <div className="h-14 w-full rounded-2xl" style={{ background: cardBg, boxShadow: cardShadow }} />
+              <div className="h-64 w-full rounded-3xl" style={{ background: cardBg, boxShadow: cardShadow }} />
+              <div className="h-28 w-full rounded-3xl" style={{ background: cardBg, boxShadow: cardShadow }} />
+            </div>
+            <div className="lg:col-span-7 xl:col-span-8 space-y-4">
+              <div className="h-12 w-full rounded-full" style={{ background: cardBg, boxShadow: cardShadow }} />
+              <div className="h-96 w-full rounded-3xl" style={{ background: cardBg, boxShadow: cardShadow }} />
+            </div>
           </div>
         )}
 
@@ -380,7 +391,7 @@ function WeatherAppContent() {
             <div className="lg:col-span-7 xl:col-span-8">
               <div className="flex gap-1 overflow-x-auto rounded-full border p-1" style={{ borderColor: hairline, background: dark ? "rgba(255,255,255,0.03)" : "#FFFFFF", boxShadow: cardShadow, scrollbarWidth: "none" }}>
                 {TABS.map((t) => (
-                  <SegButton key={t.key} active={tab === t.key} onClick={() => setTab(t.key)} accent={meta.accent} ink={ink} inkSoft={inkSoft}>{t.label}</SegButton>
+                  <SegButton key={t.key} active={tab === t.key} onClick={() => { navigator.vibrate?.(50); setTab(t.key); }} accent={meta.accent} ink={ink} inkSoft={inkSoft}>{t.label}</SegButton>
                 ))}
               </div>
 

@@ -31,8 +31,48 @@ export default function EnvironmentTab({ data, dark, fs, lang, inkSoft, hairline
             <Wind size={16} style={{ color: aqiColor }} /> {t("airQuality", lang)}
           </span>
           <span className="rounded-full px-3 py-1 text-xs font-semibold text-white" style={{ background: aqiColor }}>
-            {data.airQuality.category} · {aqi} AQI
+            {data.airQuality.category}
           </span>
+        </div>
+
+        {/* Dynamic AQI Dial SVG */}
+        <div className="relative flex flex-col items-center justify-center my-6">
+          <svg viewBox="0 0 200 110" className="w-56 overflow-visible">
+            <defs>
+              <linearGradient id="aqiGradient" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor="#10B981" /> 
+                <stop offset="33%" stopColor="#F59E0B" /> 
+                <stop offset="66%" stopColor="#F97316" /> 
+                <stop offset="100%" stopColor="#EF4444" /> 
+              </linearGradient>
+            </defs>
+            {/* Background Track */}
+            <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke={dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"} strokeWidth="12" strokeLinecap="round" />
+            
+            {/* Active Colored Track */}
+            {(() => {
+              const maxAqi = 200; // Cap visual spread at 200
+              const progress = Math.min(Math.max(aqi / maxAqi, 0), 1);
+              const arcLength = Math.PI * 80;
+              const offset = arcLength * (1 - progress);
+              return (
+                <path
+                  d="M 20 100 A 80 80 0 0 1 180 100"
+                  fill="none"
+                  stroke="url(#aqiGradient)"
+                  strokeWidth="12"
+                  strokeLinecap="round"
+                  strokeDasharray={arcLength}
+                  strokeDashoffset={offset}
+                  className="transition-all duration-1000 ease-out"
+                />
+              );
+            })()}
+          </svg>
+          <div className="absolute flex flex-col items-center mt-8">
+            <span className="font-bold tracking-tight" style={{ fontSize: fs(34), color: aqiColor, lineHeight: 1 }}>{aqi}</span>
+            <span className="font-semibold text-xs mt-1" style={{ color: inkSoft }}>AQI Score</span>
+          </div>
         </div>
 
         {/* Dynamic Pollutant Grid */}

@@ -26,7 +26,8 @@ export default function WeatherAtmosphere({ condition, isNight, reducedMotion })
 
     // Particle pool
     const particles = [];
-    const count = condition === "rain" || condition === "storm" ? 75 : condition === "snow" ? 50 : 35;
+    const isCloudy = condition === "cloudy" || condition === "partly-cloudy";
+    const count = condition === "rain" || condition === "storm" ? 75 : condition === "snow" ? 50 : isCloudy ? 18 : 35;
 
     for (let i = 0; i < count; i++) {
       particles.push({
@@ -35,13 +36,14 @@ export default function WeatherAtmosphere({ condition, isNight, reducedMotion })
         len: Math.random() * 16 + 8,
         speedY: Math.random() * 5 + 4,
         speedX: Math.random() * 0.8 - 0.4,
-        radius: Math.random() * 2.5 + 1,
-        alpha: Math.random() * 0.7 + 0.3,
+        radius: isCloudy ? Math.random() * 120 + 60 : Math.random() * 2.5 + 1,
+        alpha: isCloudy ? Math.random() * 0.1 + 0.05 : Math.random() * 0.7 + 0.3,
         twinkleSpeed: Math.random() * 0.02 + 0.005,
       });
     }
 
     let lightningTimer = 0;
+    let shootingStar = null;
 
     function render() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -86,6 +88,19 @@ export default function WeatherAtmosphere({ condition, isNight, reducedMotion })
             p.x = Math.random() * canvas.width;
           }
         }
+      } else if (isCloudy) {
+        // Fog/Mist Particles
+        ctx.fillStyle = "rgba(255, 255, 255, 1)";
+        for (const p of particles) {
+          ctx.beginPath();
+          ctx.globalAlpha = p.alpha;
+          ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+          ctx.fill();
+          p.x += p.speedX * 0.4;
+          if (p.x > canvas.width + p.radius) p.x = -p.radius;
+          if (p.x < -p.radius) p.x = canvas.width + p.radius;
+        }
+        ctx.globalAlpha = 1.0;
       } else if (isNight || condition === "clear-night") {
         // Twinkling Stars
         for (const p of particles) {
@@ -95,6 +110,32 @@ export default function WeatherAtmosphere({ condition, isNight, reducedMotion })
           ctx.beginPath();
           ctx.arc(p.x, p.y, p.radius * 0.9, 0, Math.PI * 2);
           ctx.fill();
+        }
+
+        // Shooting Star
+        if (!shootingStar && Math.random() > 0.997) {
+          shootingStar = {
+            x: Math.random() * canvas.width,
+            y: 0,
+            len: Math.random() * 60 + 30,
+            speed: Math.random() * 15 + 10,
+            angle: Math.PI / 4 + (Math.random() * 0.2 - 0.1)
+          };
+        }
+        if (shootingStar) {
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(shootingStar.x, shootingStar.y);
+          ctx.lineTo(shootingStar.x - Math.cos(shootingStar.angle) * shootingStar.len, shootingStar.y - Math.sin(shootingStar.angle) * shootingStar.len);
+          ctx.stroke();
+          
+          shootingStar.x += Math.cos(shootingStar.angle) * shootingStar.speed;
+          shootingStar.y += Math.sin(shootingStar.angle) * shootingStar.speed;
+          
+          if (shootingStar.y > canvas.height + 100 || shootingStar.x > canvas.width + 100) {
+            shootingStar = null;
+          }
         }
       }
 

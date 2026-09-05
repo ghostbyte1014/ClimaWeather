@@ -6,8 +6,8 @@ export default function SunArcWidget({ data, selectedDay, selectedDayIdx = 0, da
   const sunriseStr = selectedDay?.sunrise || current.sunrise || "5:45 AM";
   const sunsetStr = selectedDay?.sunset || current.sunset || "6:15 PM";
 
-  // Compute progress along the sun arc (0 = Sunrise, 1 = Sunset)
-  let progress = 0.5; // default noon
+  // Compute progress along the arc (0 = Start, 1 = End)
+  let progress = 0.5; // default noon/midnight
   let isSunUp = true;
   let statusText = "";
 
@@ -38,43 +38,64 @@ export default function SunArcWidget({ data, selectedDay, selectedDayIdx = 0, da
 
   const nowMins = cityNow.getHours() * 60 + cityNow.getMinutes();
 
+  let leftLabel = sunriseStr;
+  let rightLabel = sunsetStr;
+  let totalMinsForTitle = 0;
+  
   if (selectedDayIdx > 0) {
-    // For future forecast days, show clean full trajectory
+    // For future forecast days, show clean full trajectory for sun
     isSunUp = true;
     progress = 0.5;
+    leftLabel = sunriseStr;
+    rightLabel = sunsetStr;
     statusText = `${selectedDay?.day || "Forecast"} Daylight · ${sunriseStr} – ${sunsetStr}`;
-  } else if (nowMins < srMins) {
+    totalMinsForTitle = ssMins > srMins ? (ssMins - srMins) : 750;
+  } else if (nowMins < srMins || nowMins > ssMins) {
+    // Nighttime! Moon Arc
     isSunUp = false;
-    progress = 0;
-    const diffMins = srMins - nowMins;
-    const diffHours = Math.floor(diffMins / 60);
-    statusText = `Night time · Dawn in ~${diffHours > 0 ? `${diffHours}h` : `${diffMins}m`}`;
-  } else if (nowMins > ssMins) {
-    isSunUp = false;
-    progress = 1;
-    statusText = "Night time · Sun has set";
+    leftLabel = sunsetStr;
+    rightLabel = sunriseStr;
+    
+    // Total night minutes is from sunset to sunrise
+    const totalNightMins = (24 * 60 - ssMins) + srMins;
+    let elapsedNight = 0;
+    
+    if (nowMins < srMins) {
+      // After midnight, before sunrise
+      elapsedNight = (24 * 60 - ssMins) + nowMins;
+      const leftMins = srMins - nowMins;
+      const leftHours = Math.floor(leftMins / 60);
+      const remMins = leftMins % 60;
+      statusText = `Night time · Dawn in ${leftHours > 0 ? `${leftHours}h ${remMins}m` : `${remMins}m`}`;
+    } else {
+      // After sunset, before midnight
+      elapsedNight = nowMins - ssMins;
+      const leftMins = totalNightMins - elapsedNight;
+      const leftHours = Math.floor(leftMins / 60);
+      const remMins = leftMins % 60;
+      statusText = `Night time · Dawn in ${leftHours > 0 ? `${leftHours}h ${remMins}m` : `${remMins}m`}`;
+    }
+    progress = Math.min(Math.max(elapsedNight / totalNightMins, 0), 1);
+    totalMinsForTitle = totalNightMins;
   } else {
+    // Daytime! Sun Arc
     isSunUp = true;
+    leftLabel = sunriseStr;
+    rightLabel = sunsetStr;
+    
     const totalDaylightMins = ssMins - srMins;
     const elapsedMins = nowMins - srMins;
     progress = Math.min(Math.max(elapsedMins / totalDaylightMins, 0), 1);
+    
     const leftMins = ssMins - nowMins;
     const leftHours = Math.floor(leftMins / 60);
     const remMins = leftMins % 60;
     statusText = `Sun is up · ${leftHours > 0 ? `${leftHours}h ${remMins}m` : `${remMins}m`} until sunset`;
+    totalMinsForTitle = totalDaylightMins;
   }
 
-  // Calculate total daylight duration from ISO strings if available
-  let totalDaylightMins = 750;
-  if (srIso && ssIso && srIso.includes("T") && ssIso.includes("T")) {
-    const [srH, srM] = srIso.split("T")[1].split(":").map(Number);
-    const [ssH, ssM] = ssIso.split("T")[1].split(":").map(Number);
-    if (!isNaN(srH) && !isNaN(ssH)) {
-      totalDaylightMins = (ssH * 60 + ssM) - (srH * 60 + srM);
-    }
-  }
-  const daylightHours = Math.floor(totalDaylightMins / 60);
-  const daylightMins = totalDaylightMins % 60;
+  const cycleHours = Math.floor(totalMinsForTitle / 60);
+  const cycleMins = totalMinsForTitle % 60;
 
   // Stretched Arc Math (Wide 500x130 ViewBox)
   const cx = 250;
@@ -82,8 +103,8 @@ export default function SunArcWidget({ data, selectedDay, selectedDayIdx = 0, da
   const rx = 210;
   const ry = 85;
   const angle = Math.PI * (1 - progress);
-  const sunX = cx + rx * Math.cos(angle);
-  const sunY = cy - ry * Math.sin(angle);
+  const orbX = cx + rx * Math.cos(angle);
+  const orbY = cy - ry * Math.sin(angle);
 
   // Approximate arc length calculation for dashoffset
   const approxArcLength = Math.PI * Math.sqrt((rx * rx + ry * ry) / 2);
@@ -102,15 +123,15 @@ export default function SunArcWidget({ data, selectedDay, selectedDayIdx = 0, da
       {/* Widget Title & Status */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-amber-500/10">
+          <div className={`flex h-7 w-7 items-center justify-center rounded-xl ${isSunUp ? 'bg-amber-500/10' : 'bg-indigo-500/10'}`}>
             {isSunUp ? <Sun size={16} className="text-amber-500 animate-spin-slow" /> : <Moon size={16} className="text-indigo-400" />}
           </div>
           <div>
             <h3 className="font-semibold tracking-tight" style={{ fontSize: fs(13.5) }}>
-              Sun Trajectory & Daylight {locName ? `· ${locName}` : ""}
+              {isSunUp ? "Sun Trajectory" : "Moon Trajectory"} {locName ? `· ${locName}` : ""}
             </h3>
             <p style={{ fontSize: fs(11), color: inkSoft }}>
-              {daylightHours}h {daylightMins}m total daylight today
+              {cycleHours}h {cycleMins}m total {isSunUp ? "daylight" : "nighttime"}
             </p>
           </div>
         </div>
@@ -120,7 +141,7 @@ export default function SunArcWidget({ data, selectedDay, selectedDayIdx = 0, da
         </span>
       </div>
 
-      {/* Full-Width Stretched Sun Arc SVG Visualizer */}
+      {/* Full-Width Stretched Arc SVG Visualizer */}
       <div className="relative my-3 flex justify-center w-full px-2">
         <svg viewBox="0 0 500 130" className="w-full h-36 overflow-visible">
           <defs>
@@ -129,7 +150,12 @@ export default function SunArcWidget({ data, selectedDay, selectedDayIdx = 0, da
               <stop offset="50%" stopColor="#F59E0B" stopOpacity="0.95" />
               <stop offset="100%" stopColor="#EF4444" stopOpacity="0.3" />
             </linearGradient>
-            <filter id="sunGlow" x="-50%" y="-50%" width="200%" height="200%">
+            <linearGradient id="moonArcGradient" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="#818CF8" stopOpacity="0.3" />
+              <stop offset="50%" stopColor="#818CF8" stopOpacity="0.95" />
+              <stop offset="100%" stopColor="#3B82F6" stopOpacity="0.3" />
+            </linearGradient>
+            <filter id="orbGlow" x="-50%" y="-50%" width="200%" height="200%">
               <feGaussianBlur stdDeviation="4" result="blur" />
               <feComposite in="SourceGraphic" in2="blur" operator="over" />
             </filter>
@@ -148,11 +174,11 @@ export default function SunArcWidget({ data, selectedDay, selectedDayIdx = 0, da
           />
 
           {/* Active Elapsed Arc Track */}
-          {isSunUp && progress > 0 && (
+          {progress > 0 && (
             <path
               d="M 40 100 A 210 85 0 0 1 460 100"
               fill="none"
-              stroke="url(#sunArcGradient)"
+              stroke={isSunUp ? "url(#sunArcGradient)" : "url(#moonArcGradient)"}
               strokeWidth="4"
               strokeDasharray={approxArcLength}
               strokeDashoffset={approxArcLength * (1 - progress)}
@@ -161,54 +187,50 @@ export default function SunArcWidget({ data, selectedDay, selectedDayIdx = 0, da
             />
           )}
 
-          {/* Sun Orb Position */}
-          {isSunUp ? (
-            <g transform={`translate(${sunX}, ${sunY})`} filter="url(#sunGlow)">
-              <circle r="10" fill="#F59E0B" />
-              <circle r="16" fill="#F59E0B" opacity="0.3" className="animate-ping" />
-            </g>
-          ) : (
-            <g transform={`translate(${sunX}, ${sunY})`}>
-              <circle r="8" fill="#818CF8" />
-            </g>
-          )}
+          {/* Orb Position (Sun or Moon) */}
+          <g transform={`translate(${orbX}, ${orbY})`} filter="url(#orbGlow)">
+            <circle r="10" fill={isSunUp ? "#F59E0B" : "#818CF8"} />
+            <circle r="16" fill={isSunUp ? "#F59E0B" : "#818CF8"} opacity="0.3" className="animate-ping" />
+          </g>
 
-          {/* Sunrise Marker Text */}
+          {/* Left Marker Text */}
           <text x="40" y="118" textAnchor="middle" fill={inkSoft} fontSize="11" fontWeight="600">
-            {sunriseStr}
+            {leftLabel}
           </text>
 
-          {/* Solar Noon Marker */}
+          {/* Zenith Marker */}
           <text x="250" y="14" textAnchor="middle" fill={inkSoft} fontSize="10" opacity="0.7">
-            Solar Noon
+            {isSunUp ? "Solar Noon" : "Midnight"}
           </text>
 
-          {/* Sunset Marker Text */}
+          {/* Right Marker Text */}
           <text x="460" y="118" textAnchor="middle" fill={inkSoft} fontSize="11" fontWeight="600">
-            {sunsetStr}
+            {rightLabel}
           </text>
         </svg>
       </div>
 
-      {/* Sunrise & Sunset Footer Details */}
+      {/* Dynamic Event Footer Details */}
       <div className="grid grid-cols-2 gap-3 pt-2 border-t" style={{ borderColor: hairline }}>
+        {/* Left Block (Sunrise if Day, Sunset if Night) */}
         <div className="flex items-center gap-2.5 rounded-2xl p-2.5" style={{ background: dark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)" }}>
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-500">
-            <Sunrise size={18} />
+          <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${isSunUp ? 'bg-amber-500/10 text-amber-500' : 'bg-rose-500/10 text-rose-500'}`}>
+            {isSunUp ? <Sunrise size={18} /> : <Sunset size={18} />}
           </div>
           <div>
-            <div style={{ fontSize: fs(10.5), color: inkSoft }}>Sunrise</div>
-            <div className="font-semibold" style={{ fontSize: fs(13) }}>{sunriseStr}</div>
+            <div style={{ fontSize: fs(10.5), color: inkSoft }}>{isSunUp ? "Sunrise" : "Sunset"}</div>
+            <div className="font-semibold" style={{ fontSize: fs(13) }}>{isSunUp ? sunriseStr : sunsetStr}</div>
           </div>
         </div>
 
+        {/* Right Block (Sunset if Day, Sunrise if Night) */}
         <div className="flex items-center gap-2.5 rounded-2xl p-2.5" style={{ background: dark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)" }}>
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-rose-500/10 text-rose-500">
-            <Sunset size={18} />
+          <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${isSunUp ? 'bg-rose-500/10 text-rose-500' : 'bg-amber-500/10 text-amber-500'}`}>
+            {isSunUp ? <Sunset size={18} /> : <Sunrise size={18} />}
           </div>
           <div>
-            <div style={{ fontSize: fs(10.5), color: inkSoft }}>Sunset</div>
-            <div className="font-semibold" style={{ fontSize: fs(13) }}>{sunsetStr}</div>
+            <div style={{ fontSize: fs(10.5), color: inkSoft }}>{isSunUp ? "Sunset" : "Sunrise"}</div>
+            <div className="font-semibold" style={{ fontSize: fs(13) }}>{isSunUp ? sunsetStr : sunriseStr}</div>
           </div>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar } from "recharts";
 import ConditionIcon from "../ConditionIcon.jsx";
 import SunArcWidget from "../SunArcWidget.jsx";
@@ -11,6 +11,13 @@ const SUB_METRIC_PILLS = [
 export default function TodayTab({ data, selectedDayIdx = 0, setSelectedDayIdx, dark, meta, fs, temp, ink, inkSoft, hairline, cardBg, cardShadow }) {
   const [activeMetricPill, setActiveMetricPill] = useState("Overview");
   const [showFeelsLike, setShowFeelsLike] = useState(true);
+  const activeHourRef = useRef(null);
+
+  useEffect(() => {
+    if (activeHourRef.current) {
+      activeHourRef.current.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    }
+  }, [selectedDayIdx]);
 
   const selectedDay = data.daily[selectedDayIdx] || data.daily[0];
   const hourlyData = selectedDay?.hourly || data.hourly;
@@ -82,7 +89,7 @@ export default function TodayTab({ data, selectedDayIdx = 0, setSelectedDayIdx, 
       </div>
 
       {/* ---------------- DAY SELECTOR CARDS CAROUSEL ---------------- */}
-      <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+      <div className="flex gap-2 overflow-x-auto pb-4 pt-1 px-4 -mx-4" style={{ scrollbarWidth: "none" }}>
         {data.daily.map((d, idx) => {
           const isSelected = selectedDayIdx === idx;
           return (
@@ -242,17 +249,22 @@ export default function TodayTab({ data, selectedDayIdx = 0, setSelectedDayIdx, 
         <h3 className="mb-2 font-semibold tracking-tight" style={{ fontSize: fs(13) }}>
           Hourly Breakdown for {selectedDay.day}
         </h3>
-        <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-          {hourlyData.map((h, i) => (
+        <div className="flex gap-1.5 overflow-x-auto pb-4 pt-1 px-4 -mx-4" style={{ scrollbarWidth: "none" }}>
+          {hourlyData.map((h, i) => {
+            const isCurrentHour = selectedDayIdx === 0 && (h.time === "Now" || h.hour24 === new Date().getHours());
+            return (
             <div
               key={i}
-              className="flex min-w-[64px] flex-col items-center gap-1 rounded-2xl border px-2 py-3 text-center transition-transform hover:-translate-y-0.5"
+              ref={isCurrentHour ? activeHourRef : null}
+              className={`flex min-w-[64px] flex-col items-center gap-1 rounded-2xl border px-2 py-3 text-center transition-transform ${isCurrentHour ? '' : 'hover:-translate-y-0.5'}`}
               style={{
-                borderColor: hairline,
-                background: i === 0 && selectedDayIdx === 0 ? meta.accent + "22" : cardBg,
+                borderColor: isCurrentHour ? meta.accent : hairline,
+                background: isCurrentHour ? meta.accent + "22" : cardBg,
+                boxShadow: isCurrentHour ? `0 4px 12px ${meta.accent}26` : 'none',
+                transform: isCurrentHour ? 'scale(1.02)' : 'scale(1)'
               }}
             >
-              <span style={{ fontSize: fs(10.5), color: inkSoft }}>{h.time}</span>
+              <span style={{ fontSize: fs(10.5), color: isCurrentHour ? meta.accent : inkSoft }} className={isCurrentHour ? 'font-bold' : ''}>{h.time}</span>
               <ConditionIcon condition={h.condition} size={20} />
               <span className="font-semibold" style={{ fontSize: fs(13), color: ink }}>
                 {activeMetricPill === "Precipitation"
@@ -267,11 +279,12 @@ export default function TodayTab({ data, selectedDayIdx = 0, setSelectedDayIdx, 
                   ? `${h.uvIndex} UV`
                   : `${temp(h.tempC)}°`}
               </span>
-              <span style={{ fontSize: fs(9.5), color: h.precipMm > 0 ? "#0284C7" : "#EF4444" }}>
+              <span style={{ fontSize: fs(9.5), color: h.precipMm > 0 ? "#0284C7" : (isCurrentHour ? meta.accent : "#EF4444") }}>
                 {activeMetricPill === "Precipitation" ? `${h.precipMm} mm` : `Feels ${temp(h.feelsLikeC)}°`}
               </span>
             </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 

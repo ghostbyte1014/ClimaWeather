@@ -1,8 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 
 const MAP_LAYERS = [
-  { key: "street", label: "Street View", url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" },
-  { key: "dark", label: "Dark View", url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" },
+  { key: "osm", label: "OpenStreetMap", url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png" },
   { key: "satellite", label: "Satellite View", url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" },
   { key: "topo", label: "Terrain / Topo", url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}" },
 ];
@@ -11,7 +10,7 @@ export default function MapTab({ lat, lon, locationName, dark, hairline, cardBg,
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const tileLayerRef = useRef(null);
-  const [activeLayer, setActiveLayer] = useState("street");
+  const [activeLayer, setActiveLayer] = useState("osm");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -137,7 +136,7 @@ export default function MapTab({ lat, lon, locationName, dark, hairline, cardBg,
         <div ref={mapRef} className="h-80 w-full" />
         <div className="flex items-center justify-between border-t px-4 py-2 text-xs" style={{ background: dark ? "#131826" : "#FFFFFF", borderColor: hairline }}>
           <span className="font-semibold">{locationName}</span>
-          <span className="opacity-70">100% Free Map Tiles (CartoDB & Esri ArcGIS)</span>
+          <span className="opacity-70">100% Free Map Tiles (OSM & Esri ArcGIS)</span>
         </div>
       </div>
     </div>

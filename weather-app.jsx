@@ -20,8 +20,6 @@ import SegButton from "./src/components/SegButton.jsx";
 import TodayTab from "./src/components/Tabs/TodayTab.jsx";
 import EnvironmentTab from "./src/components/Tabs/EnvironmentTab.jsx";
 import MapTab from "./src/components/Tabs/MapTab.jsx";
-import HistoryTab from "./src/components/Tabs/HistoryTab.jsx";
-import CompareTab from "./src/components/Tabs/CompareTab.jsx";
 import SettingsDrawer from "./src/components/SettingsDrawer.jsx";
 import WeatherGuideModal from "./src/components/WeatherGuideModal.jsx";
 import PrivacyModal from "./src/components/PrivacyModal.jsx";
@@ -105,8 +103,6 @@ function WeatherAppContent() {
   const [selectedGuideKey, setSelectedGuideKey] = useState(null);
   const [briefingOpen, setBriefingOpen] = useState(true);
   const [dismissedAlerts, setDismissedAlerts] = useState([]);
-  const [compareCityName, setCompareCityName] = useState("Tokyo");
-  const [compareData, setCompareData] = useState(null);
 
   // Notifications & PWA
   const [notifPermission, setNotifPermission] = useState(typeof Notification !== "undefined" ? Notification.permission : "unsupported");
@@ -210,17 +206,6 @@ function WeatherAppContent() {
     return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
 
-  // Compare tab data loader
-  useEffect(() => {
-    if (tab !== "compare") return;
-    const city = DEFAULT_CITIES.find((c) => c.name === compareCityName) || DEFAULT_CITIES[0];
-    let cancelled = false;
-    fetchRealWeather(city)
-      .then((d) => { if (!cancelled) setCompareData(d); })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [tab, compareCityName]);
-
   function selectCity(city) {
     setActiveCity(city);
     saveSetting("lastActiveCity", city);
@@ -314,8 +299,6 @@ function WeatherAppContent() {
     { key: "today", label: t("today", lang) },
     { key: "environment", label: t("airAndPollen", lang) },
     { key: "map", label: "Map View" },
-    { key: "history", label: t("history", lang) },
-    { key: "compare", label: t("compare", lang) },
   ];
 
   return (
@@ -404,8 +387,6 @@ function WeatherAppContent() {
               {tab === "today" && <TodayTab data={displayData} selectedDayIdx={selectedDayIdx} setSelectedDayIdx={setSelectedDayIdx} dark={dark} meta={meta} fs={fs} temp={temp} lang={lang} ink={ink} inkSoft={inkSoft} hairline={hairline} cardBg={cardBg} cardShadow={cardShadow} />}
               {tab === "environment" && <EnvironmentTab data={data} dark={dark} fs={fs} lang={lang} inkSoft={inkSoft} hairline={hairline} cardBg={cardBg} cardShadow={cardShadow} />}
               {tab === "map" && <MapTab lat={data.location.lat} lon={data.location.lon} locationName={data.location.name} dark={dark} hairline={hairline} cardBg={cardBg} cardShadow={cardShadow} fs={fs} />}
-              {tab === "history" && <HistoryTab data={data} temp={temp} fs={fs} inkSoft={inkSoft} hairline={hairline} />}
-              {tab === "compare" && <CompareTab activeCity={activeCity} data={data} compareCityName={compareCityName} setCompareCityName={setCompareCityName} compareData={compareData} temp={temp} fs={fs} ink={ink} inkSoft={inkSoft} hairline={hairline} cardBg={cardBg} cardShadow={cardShadow} />}
             </div>
           </div>
         )}
